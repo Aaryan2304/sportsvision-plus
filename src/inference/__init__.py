@@ -46,7 +46,7 @@ from .team import (
 __all__ = [
     # Detectors
     "ObjectDetector",
-    "PitchDetector", 
+    "PitchDetector",
     "CombinedDetector",
     "get_crops",
     "filter_by_class",

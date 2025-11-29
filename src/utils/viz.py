@@ -410,53 +410,84 @@ class FrameAnnotator:
     Annotator for drawing detections on video frames.
     
     Uses supervision library annotators with predefined styling.
+    Matches the annotation style from football_ai.ipynb:
+    - EllipseAnnotator for players/goalkeepers/referees
+    - TriangleAnnotator for the ball
+    - LabelAnnotator for tracker IDs
+    
+    Notebook Reference: football_ai.ipynb Cells 27, 29
     """
     
     def __init__(
         self,
         team_colors: List[Tuple[int, int, int]] = None,
-        box_thickness: int = 2,
+        ball_color: Tuple[int, int, int] = None,
+        thickness: int = 2,
         text_thickness: int = 1,
-        text_scale: float = 0.5
+        text_scale: float = 0.5,
+        triangle_base: int = 25,
+        triangle_height: int = 21
     ):
         """
         Initialize the frame annotator.
         
         Args:
-            team_colors (List): Colors for [Team A, Team B, Referee, Ball].
-            box_thickness (int): Thickness of bounding boxes.
+            team_colors (List): Colors for [Team A, Team B, Referee] in BGR.
+            ball_color (Tuple): Color for ball annotation in BGR.
+            thickness (int): Thickness of annotations.
             text_thickness (int): Thickness of label text.
             text_scale (float): Scale of label text.
+            triangle_base (int): Base size of ball triangle marker.
+            triangle_height (int): Height of ball triangle marker.
         """
+        # Default colors matching notebook: Deep Sky Blue, Deep Pink, Gold
         if team_colors is None:
             team_colors = [
-                Colors.TEAM_A,
-                Colors.TEAM_B,
-                Colors.REFEREE,
-                Colors.BALL
+                Colors.TEAM_A,      # #00BFFF - Deep Sky Blue
+                Colors.TEAM_B,      # #FF1493 - Deep Pink
+                Colors.REFEREE      # #FFD700 - Gold
             ]
         
-        # Convert BGR tuples to sv.Color objects
+        if ball_color is None:
+            ball_color = Colors.BALL  # #FFD700 - Gold (same as referee)
+        
+        # Convert BGR tuples to sv.Color objects (supervision uses RGB)
         sv_colors = [sv.Color(*c[::-1]) for c in team_colors]  # BGR to RGB
+        sv_ball_color = sv.Color(*ball_color[::-1])
         
         self.color_palette = sv.ColorPalette(colors=sv_colors)
         
-        self.box_annotator = sv.BoxAnnotator(
+        # Ellipse annotator for players/goalkeepers/referees
+        # Creates the circular "shadow" under each player
+        self.ellipse_annotator = sv.EllipseAnnotator(
             color=self.color_palette,
-            thickness=box_thickness
+            thickness=thickness
         )
         
+        # Triangle annotator for the ball
+        # Creates a pointing triangle marker for ball position
+        self.triangle_annotator = sv.TriangleAnnotator(
+            color=sv_ball_color,
+            base=triangle_base,
+            height=triangle_height,
+            outline_thickness=1
+        )
+        
+        # Label annotator for tracker IDs
+        # Positioned at bottom center with smart positioning
         self.label_annotator = sv.LabelAnnotator(
             color=self.color_palette,
-            text_color=sv.Color.WHITE,
+            text_color=sv.Color.from_hex('#000000'),  # Black text
+            text_position=sv.Position.BOTTOM_CENTER,
             text_thickness=text_thickness,
             text_scale=text_scale,
             text_padding=5
         )
         
-        self.ellipse_annotator = sv.EllipseAnnotator(
+        # Box annotator (kept as fallback option)
+        self.box_annotator = sv.BoxAnnotator(
             color=self.color_palette,
-            thickness=box_thickness
+            thickness=thickness
         )
     
     def annotate(
@@ -465,22 +496,27 @@ class FrameAnnotator:
         detections: sv.Detections,
         labels: Optional[List[str]] = None,
         color_lookup: Optional[np.ndarray] = None,
-        use_ellipse: bool = False
+        use_ellipse: bool = True
     ) -> np.ndarray:
         """
-        Annotate a frame with detections.
+        Annotate a frame with player/goalkeeper/referee detections.
+        
+        Uses ellipse annotator by default (matching notebook style).
         
         Args:
             frame (np.ndarray): Input frame.
-            detections (sv.Detections): Detected objects.
-            labels (List[str]): Labels for each detection.
+            detections (sv.Detections): Detected objects (players, GK, refs).
+            labels (List[str]): Labels for each detection (e.g., tracker IDs).
             color_lookup (np.ndarray): Custom color indices for each detection.
-            use_ellipse (bool): Use ellipse instead of box annotation.
+            use_ellipse (bool): Use ellipse (True) or box (False) annotation.
         
         Returns:
             np.ndarray: Annotated frame.
         """
         annotated = frame.copy()
+        
+        if len(detections) == 0:
+            return annotated
         
         if use_ellipse:
             annotated = self.ellipse_annotator.annotate(
@@ -502,6 +538,75 @@ class FrameAnnotator:
                 labels=labels,
                 custom_color_lookup=color_lookup
             )
+        
+        return annotated
+    
+    def annotate_ball(
+        self,
+        frame: np.ndarray,
+        ball_detections: sv.Detections
+    ) -> np.ndarray:
+        """
+        Annotate ball position with triangle marker.
+        
+        Uses TriangleAnnotator matching the notebook style.
+        
+        Args:
+            frame (np.ndarray): Input frame.
+            ball_detections (sv.Detections): Ball detection(s).
+        
+        Returns:
+            np.ndarray: Frame with ball annotation.
+        """
+        if len(ball_detections) == 0:
+            return frame
+        
+        return self.triangle_annotator.annotate(
+            scene=frame,
+            detections=ball_detections
+        )
+    
+    def annotate_full(
+        self,
+        frame: np.ndarray,
+        player_detections: sv.Detections,
+        ball_detections: sv.Detections,
+        labels: Optional[List[str]] = None,
+        color_lookup: Optional[np.ndarray] = None
+    ) -> np.ndarray:
+        """
+        Annotate frame with both players and ball.
+        
+        Convenience method that applies:
+        1. Ellipse annotation for players/goalkeepers/referees
+        2. Triangle annotation for ball
+        3. Labels for tracker IDs
+        
+        This matches the annotation style from football_ai.ipynb.
+        
+        Args:
+            frame (np.ndarray): Input frame.
+            player_detections (sv.Detections): Player/GK/Referee detections.
+            ball_detections (sv.Detections): Ball detection(s).
+            labels (List[str]): Labels for player detections.
+            color_lookup (np.ndarray): Color indices for players.
+        
+        Returns:
+            np.ndarray: Fully annotated frame.
+        """
+        annotated = frame.copy()
+        
+        # First: annotate players with ellipses
+        annotated = self.annotate(
+            annotated,
+            player_detections,
+            labels=labels,
+            color_lookup=color_lookup,
+            use_ellipse=True
+        )
+        
+        # Second: annotate ball with triangle
+        annotated = self.annotate_ball(annotated, ball_detections)
         
         return annotated
 

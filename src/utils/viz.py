@@ -420,8 +420,8 @@ class FrameAnnotator:
     
     def __init__(
         self,
-        team_colors: List[Tuple[int, int, int]] = None,
-        ball_color: Tuple[int, int, int] = None,
+        team_colors: Optional[List[Tuple[int, int, int]]] = None,
+        ball_color: Optional[Tuple[int, int, int]] = None,
         thickness: int = 2,
         text_thickness: int = 1,
         text_scale: float = 0.5,
@@ -503,12 +503,18 @@ class FrameAnnotator:
         
         Uses ellipse annotator by default (matching notebook style).
         
+        Note:
+            Default changed from box to ellipse annotation to match
+            football_ai.ipynb visualization style. Use use_ellipse=False
+            for box-style annotations.
+        
         Args:
             frame (np.ndarray): Input frame.
             detections (sv.Detections): Detected objects (players, GK, refs).
             labels (List[str]): Labels for each detection (e.g., tracker IDs).
             color_lookup (np.ndarray): Custom color indices for each detection.
             use_ellipse (bool): Use ellipse (True) or box (False) annotation.
+                               Defaults to True for notebook-style visualization.
         
         Returns:
             np.ndarray: Annotated frame.

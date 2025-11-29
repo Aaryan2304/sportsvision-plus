@@ -34,7 +34,8 @@ class BallTracker:
         self,
         buffer_size: int = 10,
         max_distance: float = 500.0,
-        max_interpolation_frames: int = 5
+        max_interpolation_frames: int = 5,
+        relaxed_distance_multiplier: float = 2.0
     ):
         """
         Initialize the BallTracker.
@@ -44,10 +45,14 @@ class BallTracker:
             max_distance (float): Maximum allowed pixel displacement per frame.
                                   Detections exceeding this are rejected as teleports.
             max_interpolation_frames (int): Max frames to interpolate missing ball.
+            relaxed_distance_multiplier (float): Multiplier for max_distance when all
+                                                  detections are teleports but we need
+                                                  to pick the best candidate.
         """
         self.buffer: deque = deque(maxlen=buffer_size)
         self.max_distance = max_distance
         self.max_interpolation_frames = max_interpolation_frames
+        self.relaxed_distance_multiplier = relaxed_distance_multiplier
         self.last_position: Optional[np.ndarray] = None
         self.last_velocity: Optional[np.ndarray] = None
         self.missing_frames: int = 0
@@ -96,10 +101,6 @@ class BallTracker:
         else:
             xy = detections.get_anchors_coordinates(sv.Position.CENTER)
         
-        # Add to buffer even if empty (for centroid calculation)
-        if len(xy) > 0:
-            self.buffer.append(xy)
-        
         # No detections - try interpolation
         if len(detections) == 0:
             self.missing_frames += 1
@@ -131,8 +132,8 @@ class BallTracker:
                 distances = np.linalg.norm(xy - centroid, axis=1)
                 best_idx = np.argmin(distances)
                 
-                # Only accept if within 2x max_distance of centroid
-                if distances[best_idx] <= self.max_distance * 2:
+                # Only accept if within relaxed distance threshold of centroid
+                if distances[best_idx] <= self.max_distance * self.relaxed_distance_multiplier:
                     valid_mask[best_idx] = True
         
         if not np.any(valid_mask):
@@ -160,6 +161,9 @@ class BallTracker:
             self.last_velocity = selected_position - self.last_position
         
         self.last_position = selected_position.copy()
+        
+        # Add validated position to buffer (only after filtering teleports)
+        self.buffer.append(selected_position.reshape(1, 2))
         
         return selected_detection
     

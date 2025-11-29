@@ -183,7 +183,7 @@ class TeamClassifier:
             List[Tuple[int, int, int]]: List of BGR color tuples.
         """
         if self.team_colors is None:
-            return [(255, 191, 0), (147, 20, 255)]  # Default: Deep Sky Blue, Deep Pink
+            return [(255, 191, 0), (147, 20, 255)]  # Default: Light Blue/Cyan, Magenta/Pink
         
         bgr_colors = []
         for lab_color in self.team_colors:
@@ -279,7 +279,7 @@ class TeamClassifierAdvanced:
                     lab = cv2.cvtColor(jersey, cv2.COLOR_BGR2LAB)
                     feature = lab.mean(axis=(0, 1)).astype(np.float32)
             else:
-                feature = np.zeros(self.hist_bins * 3 if self.use_histogram else 3)
+                feature = np.zeros(self.hist_bins * 3 if self.use_histogram else 3, dtype=np.float32)
             features.append(feature)
         
         return np.array(features, dtype=np.float32)

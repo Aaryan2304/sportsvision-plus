@@ -56,7 +56,8 @@ class BallTracker:
         """Compute the centroid of buffered positions."""
         if len(self.buffer) == 0:
             return None
-        return np.mean(np.concatenate(list(self.buffer)), axis=0)
+        # Use vstack to handle buffer entries with varying numbers of detections
+        return np.mean(np.vstack(list(self.buffer)), axis=0)
     
     def _is_valid_position(self, position: np.ndarray) -> bool:
         """
@@ -267,20 +268,27 @@ def resolve_goalkeepers_team_id(
     goalkeepers_xy = goalkeepers.get_anchors_coordinates(sv.Position.BOTTOM_CENTER)
     players_xy = players.get_anchors_coordinates(sv.Position.BOTTOM_CENTER)
     
-    # Compute team centroids
+    # Compute team masks
     team_0_mask = players_team_id == 0
     team_1_mask = players_team_id == 1
     
-    # Handle edge cases where a team has no players detected
-    if not np.any(team_0_mask):
-        team_0_centroid = np.array([0, 0], dtype=np.float32)
-    else:
-        team_0_centroid = players_xy[team_0_mask].mean(axis=0)
+    has_team_0 = np.any(team_0_mask)
+    has_team_1 = np.any(team_1_mask)
     
-    if not np.any(team_1_mask):
-        team_1_centroid = np.array([0, 0], dtype=np.float32)
-    else:
-        team_1_centroid = players_xy[team_1_mask].mean(axis=0)
+    # Handle edge cases where one or both teams have no players detected
+    if not has_team_0 and not has_team_1:
+        # No players for either team: assign all goalkeepers to team 0 (default)
+        return np.zeros(len(goalkeepers), dtype=np.int32)
+    elif not has_team_0:
+        # Only team 1 has players: assign all goalkeepers to team 1
+        return np.ones(len(goalkeepers), dtype=np.int32)
+    elif not has_team_1:
+        # Only team 0 has players: assign all goalkeepers to team 0
+        return np.zeros(len(goalkeepers), dtype=np.int32)
+    
+    # Both teams have players: compute centroids and assign by proximity
+    team_0_centroid = players_xy[team_0_mask].mean(axis=0)
+    team_1_centroid = players_xy[team_1_mask].mean(axis=0)
     
     # Assign each goalkeeper to nearest team
     goalkeeper_team_ids = []

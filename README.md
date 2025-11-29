@@ -194,7 +194,7 @@ SNMOT-XXX/
 
 ## 📝 License
 
-MIT License - See [LICENSE](LICENSE) for details.
+Apache License - See [LICENSE](LICENSE) for details.
 
 ## 🙏 Acknowledgments
 

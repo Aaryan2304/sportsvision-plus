@@ -44,7 +44,8 @@ class TeamClassifier:
             n_clusters (int): Number of teams to classify (default: 2).
         """
         self.n_clusters = n_clusters
-        self.cluster_model = KMeans(n_clusters=n_clusters, random_state=42, n_init=10)
+        # Use n_init='auto' for compatibility with scikit-learn 1.4+
+        self.cluster_model = KMeans(n_clusters=n_clusters, random_state=42, n_init='auto')
         self.team_colors: Optional[np.ndarray] = None
         self._is_fitted = False
     
@@ -225,7 +226,8 @@ class TeamClassifierAdvanced:
         self.n_clusters = n_clusters
         self.hist_bins = hist_bins
         self.use_histogram = use_histogram
-        self.cluster_model = KMeans(n_clusters=n_clusters, random_state=42, n_init=10)
+        # Use n_init='auto' for compatibility with scikit-learn 1.4+
+        self.cluster_model = KMeans(n_clusters=n_clusters, random_state=42, n_init='auto')
         self._is_fitted = False
     
     def _extract_jersey_region(

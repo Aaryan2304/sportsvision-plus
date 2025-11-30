@@ -145,12 +145,13 @@ class ObjectDetector:
                 xyxy=ball_detections.xyxy,
                 px=pad_ball
             )
+            # supervision.Detections always has tracker_id and data attributes
             ball_detections = sv.Detections(
                 xyxy=padded_xyxy,
                 class_id=ball_detections.class_id,
                 confidence=ball_detections.confidence,
-                tracker_id=ball_detections.tracker_id if hasattr(ball_detections, 'tracker_id') else None,
-                data=ball_detections.data if hasattr(ball_detections, 'data') else {}
+                tracker_id=ball_detections.tracker_id,
+                data=ball_detections.data
             )
         
         # Apply NMS to non-ball detections

@@ -150,6 +150,7 @@ class BallTracker:
         if centroid is not None and len(filtered_xy) > 1:
             distances = np.linalg.norm(filtered_xy - centroid, axis=1)
             best_idx = np.argmin(distances)
+            # Use [[idx]] fancy indexing to maintain sv.Detections object structure
             selected_detection = filtered_detections[[best_idx]]
             selected_position = filtered_xy[best_idx]
         else:
@@ -163,7 +164,8 @@ class BallTracker:
         self.last_position = selected_position.copy()
         
         # Add validated position to buffer (only after filtering teleports)
-        self.buffer.append(selected_position.reshape(1, 2))
+        # Store as 1D array (2,) for consistency with np.vstack in _compute_centroid
+        self.buffer.append(selected_position.copy())
         
         return selected_detection
     
